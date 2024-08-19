@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable import/no-unresolved */
 /* eslint-disable prefer-destructuring */
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
@@ -7,13 +9,17 @@ const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const ImageminWebpackPlugin = require('imagemin-webpack-plugin').default;
 const ImageminMozjpeg = require('imagemin-mozjpeg');
 const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
+const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const ImageWebpackLoader = require('image-webpack-loader');
 
 module.exports = {
+  mode: 'production', // Mode production untuk optimasi otomatis
   entry: {
     app: path.resolve(__dirname, 'src/scripts/index.js'),
   },
   output: {
-    filename: '[name].bundle.js',
+    filename: '[name].[contenthash].bundle.js', // Menggunakan contenthash untuk cache busting
     path: path.resolve(__dirname, 'dist'),
     clean: true,
   },
@@ -32,7 +38,7 @@ module.exports = {
       {
         test: /\.css$/,
         use: [
-          'style-loader',
+          MiniCssExtractPlugin.loader, // Memisahkan CSS dari JS
           'css-loader',
         ],
       },
@@ -42,6 +48,34 @@ module.exports = {
         generator: {
           filename: 'images/[hash][ext][query]',
         },
+        use: [
+          {
+            loader: 'image-webpack-loader',
+            options: {
+              mozjpeg: {
+                progressive: true,
+                quality: 50,
+              },
+              optipng: {
+                enabled: true,
+              },
+              pngquant: {
+                quality: [0.5, 0.65],
+                speed: 4,
+              },
+              gifsicle: {
+                interlaced: false,
+              },
+              svgo: {
+                plugins: [
+                  {
+                    removeViewBox: false,
+                  },
+                ],
+              },
+            },
+          },
+        ],
       },
     ],
   },
@@ -75,12 +109,29 @@ module.exports = {
         }),
       ],
     }),
+    new MiniCssExtractPlugin({
+      filename: '[name].[contenthash].css',
+    }),
+    new CssMinimizerPlugin(),
     new BundleAnalyzerPlugin(),
   ],
   optimization: {
+    minimize: true,
+    minimizer: [
+      '...', // Untuk menggunakan minifier bawaan Webpack (termasuk Terser untuk JS)
+      new CssMinimizerPlugin(),
+    ],
     splitChunks: {
       chunks: 'all',
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+        },
+      },
     },
+    runtimeChunk: 'single',
   },
   devServer: {
     static: path.resolve(__dirname, 'dist'),
